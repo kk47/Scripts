@@ -1,0 +1,13 @@
+Mon Nov 24 16:35:37 CST 2014 start md5sum
+/root/#!/bin/bash not exist.
+/root/#init not exist.
+/root/cp ./oidfile ./oidfile.bak && echo > ./oidfile not exist.
+/root/cp ./badlist ./badlist.bak && echo > ./badlist not exist.
+/root/#get object id from chunkid not exist.
+/root/for chkid in `cat ./badlist`;do not exist.
+/root/dayumdsmgmt -c GetChunkStatus -p "ChunkId=$chkid"|grep objectId|awk -F= '{print $2}' >> ./oidfile not exist.
+/root/done not exist.
+/root/#select path and oid from database; not exist.
+/root/for oid in `cat ./oidfile`; do not exist.
+/root/mysql -u root -p123456 -e "select oid,path from dayu.metadata where oid=$oid;"|grep -v " | path " | grep -v "oid	path" not exist.
+/root/done not exist.

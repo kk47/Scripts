@@ -1,0 +1,164 @@
+#!/bin/bash
+
+function usage
+{
+    cat << EOF
+Usage:
+    `basename $0` [start|stop|status|monitor]
+EOF
+    exit 1
+
+}
+
+function kill_proc()   
+{
+    local pattern=${1?}
+    local signal="-TERM"   # default signal
+    local pid=$(ps ax -o pid,command | \
+                awk '!/awk/ && $0~pat { print $1 }' pat=${pattern})
+    
+    if [ -z "${pid}" ]; then
+        echo "      Not Running"
+        return
+    else
+        echo "      Done"
+        kill $signal $pid
+    fi
+}
+
+function get_pid()
+{
+    local name=${1?}
+    local pid=$(pgrep -n -x $name)
+    echo ${pid} 
+}
+
+function cms_status
+{
+    # Check
+    local pattern=dayucms
+    local pid=$(ps ax -o pid,command | \
+                awk '!/awk/ && $0~pat { print $1 }' pat=${pattern})
+    
+    if [ -z "${pid}" ]; then
+        echo "Dayucms stopped"
+    else 
+        echo "Dayucms running(${pid})"
+    fi
+}
+
+function start_cms
+{   
+    grep -q "^cms" $compfile || return 
+    
+    # Start CMS
+    echo -n "Starting CMS ...        "
+    local pid=$(get_pid dayucms)
+    if [ -n "$pid" ]; then
+        echo "      Already Running"
+    else
+        ${dayudir}/bin/dayucms -c ${confdir}/cms.xml
+        sleep 1    
+        pid=$(get_pid dayucms)
+        if [ -n "$pid" ]; then
+            echo "      Done"
+        else
+            echo "      Failed"
+            return
+        fi    
+    fi
+
+    # Start GUI
+    echo -n "Starting GUI ...        "
+    pid=$(get_pid dayugui.py)
+    if [ -n "$pid" ]; then
+        echo "      Already Running"
+    else
+        ${dayudir}/webgui/dayugui.py
+        sleep 1    
+        pid=$(get_pid dayugui.py)
+        if [ -n "$pid" ]; then
+            echo "      Done"
+        else
+            echo "      Failed"
+        fi    
+    fi
+
+    #Start munin
+    echo -n "Starting munin ...      "
+    cat /etc/cron.d/munin | grep "^#.*munin-cron" &>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "      Already Running"
+        return
+    fi
+
+    sed -i "/munin-cron/s/^#*//" /etc/cron.d/munin
+    if [ $? -ne 0 ]; then
+        echo "      Failed"
+    else
+        echo "      Done"
+    fi
+    
+}
+
+function stop_cms
+{
+    grep -q "^cms" $compfile || return
+    
+    echo -n "Stopping GUI ...        "
+    kill_proc dayugui.py
+
+    echo -n "Stopping CMS ...        "
+    kill_proc dayucms
+
+    #Stop munin
+    echo -n "Stopping munin ...      "
+    grep '^#.*/munin-cron' /etc/cron.d/munin &>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "      Not Running"
+    else
+        sed -i "/munin-cron/s/^/#/" /etc/cron.d/munin
+        if [ $? -ne 0 ]; then
+            echo "      Failed"
+        else
+            echo "      Done"
+        fi
+    fi
+}
+
+#
+# Main function 
+#
+
+if [ -z "${1}" ]; then
+    usage
+    exit 1
+fi
+. /etc/dayu/env.sh
+
+command=${1?}
+
+dayudir="/usr/local/dayu"
+[[ "$DAYU_INSTALL_DIR" == "" ]] || dayudir="$DAYU_INSTALL_DIR"
+
+confdir="/etc/dayu"
+
+compfile="${confdir}/components"
+
+case ${command} in
+    start)
+        start_cms &>>/var/log/dayu/gui.log
+        ;;
+    stop)
+        stop_cms
+        ;;
+    status)
+        cms_status
+        ;;
+    monitor)
+        cms_status
+        ;;
+    *)
+        usage
+        ;;
+esac

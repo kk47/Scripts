@@ -1,0 +1,115 @@
+#!/bin/bash
+#init the dayu system environment
+
+function centos_off_services() 
+{
+    chkconfig abrt-ccpp off
+    chkconfig abrtd off
+    chkconfig acpid off
+    chkconfig atd off
+    chkconfig auditd off
+    chkconfig ip6tables off
+    chkconfig mdmonitor off
+    chkconfig rdisc off
+    chkconfig restorecond off
+        
+    service iptables stop
+    chkconfig iptables off
+
+    chkconfig ntpd on
+
+    setenforce 0
+    sed -i 's/^SELINUX=.*$/SELINUX=disabled/g' /etc/sysconfig/selinux
+}
+
+function ubuntu_off_services()
+{
+   update-rc.d bluetooth disable
+   sudo ufw disable 
+}
+
+function off_services()
+{    
+    if [[ `cat /etc/issue |grep "CentOS"` ]]; then 
+        centos_off_services
+    elif [[ `cat /etc/issue |grep "Ubuntu"` ]]; then
+        ubuntu_off_services
+    else
+        echo "Unsupport system!!!"
+        exit 1
+    fi
+    echo "Off system service Done."
+}
+
+function modify_updatedb()
+{
+    grep "fuse.dayufs" /etc/updatedb.conf &>/dev/null
+    if [[ $? -ne 0 ]]
+    then 
+        sed -i '/PRUNEFS/s/"/"fuse.dayufs\ /' /etc/updatedb.conf
+    fi
+    [ -z $DAYU_MNT_PNT ] && DAYU_MNT_PNT=/mnt/dayu
+    grep "$DAYU_MNT_PNT" /etc/updatedb.conf &>/dev/null
+    if [[ $? -ne 0 ]]
+    then
+        sed -i "/PRUNEPATHS/s/\"/\"$(echo $DAYU_MNT_PNT |sed 's/\//\\\//g')\ /" /etc/updatedb.conf
+    fi
+    grep "/dayudata" /etc/updatedb.conf &>/dev/null
+    if [[ $? -ne 0 ]]
+    then
+        sed -i "/PRUNEPATHS/s/\"/\"\/dayudata\ /" /etc/updatedb.conf
+        echo "Add updatedb prunes Done."
+    fi
+    echo "Modify updatedb Done."
+}
+
+function modify_kernel()
+{
+    if [[ ! -z $coredir ]]
+    then
+        grep "kernel.core_pattern = ${coredir}/%e-%p-%t" /etc/sysctl.conf || echo "kernel.core_pattern = ${coredir}/%e-%p-%t" >> /etc/sysctl.conf
+    else
+        [ ! -d /cores ] && mkdir /cores
+        grep "kernel.core_pattern = /cores/%e-%p-%t" /etc/sysctl.conf || echo "kernel.core_pattern = /cores/%e-%p-%t" >> /etc/sysctl.conf
+    fi
+    grep "net.ipv4.tcp_retries2 = 6" /etc/sysctl.conf || echo "net.ipv4.tcp_retries2 = 6" >> /etc/sysctl.conf    
+    /sbin/sysctl -e -p &> /dev/null
+    echo "Modify kernel Done."
+}
+
+function remove_motd() 
+{
+    test -e /etc/pam.d/login  && sed -i "s/\(^[^\#].*pam_motd\.so.*\)/\#\1/g" /etc/pam.d/login
+    [[ $? -eq 0 ]] || echo "Failed to remove motd from login"
+    test -e /etc/pam.d/sshd && sed -i "s/\(^[^\#].*pam_motd\.so.*\)/\#\1/g" /etc/pam.d/sshd
+    [[ $? -eq 0 ]] || echo "Failed to remove motd from sshd"
+}
+
+function lshw_check 
+{
+    if [[ -f /usr/sbin/lshw ]]
+    then
+        declare -i ver=`lshw -v 2>&1 |head -n 1 |awk -F. '{print $3}'`
+        if [[ $ver -le 14 ]]
+        then
+            [[ -d /root/dayu/misc ]] && \cp -f /root/dayu/misc/lshw /usr/sbin/ && echo "lshw check Done."
+        fi
+    else
+        [[ -d /root/dayu/misc ]] && \cp -f /root/dayu/misc/lshw /usr/sbin/ && echo "lshw check Done."
+    fi
+}
+
+#shutdown the unnesessary service
+off_services
+
+#add fuse.dayufs to updatedb prunes 
+modify_updatedb
+
+#kernel parms modify
+modify_kernel
+
+# remove pam_motd.so from login/ssh
+remove_motd
+
+# update lshw
+lshw_check

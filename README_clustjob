@@ -1,0 +1,42 @@
+keven clust job explain, using md5sum as an example
+the md5sum can be replaced by any other tools, but the tools have to follow the interface
+
+clustjob.sh 
+1. this is a control script, receive command SET|START|STATUS|STOP|RESULT|REMOVE
+2. command explain
+   command SET:
+    create environment, split filelist and distribute filelist to node list
+    Example: ./clustjob.sh -j ./handlemd5.sh -l ./nodelist -f ./filelist -d /root/clustjob/ -c set
+    a tokan string  will be generate and print out
+
+   command START:
+    start clust job, actually is running nodejob.sh in every node
+    Example: ./clustjob.sh -s 0630 -t 0830 -c start -t 2314-23412 (tokan string get from set command)
+    0630 means running at 06:30 am and the same as 0830
+
+   command STATUS:
+    show the status of clust job
+    Example: ./clustjob.sh -c status -t 2314-23412
+
+   command STOP:
+    stop clust job, kill process by pid
+    Example: ./clustjob.sh -c stop -t 2314-23412
+
+   command RESULT:
+    collect and compress the result file, which is cmplist.HOSTNAME, reslist.HOSTNAME, faillist.HOSTNAME
+    Example: ./clustjob.sh -c result -t 2314-23412
+
+   command REMOVE:
+    remove the work dirs and files
+    Example: ./clustjob.sh -c remove -t 2314-23412
+
+nodejob.sh
+1. this script will be callled by clustjob.sh and running in every node
+2. read path of file from filelist and call handlemd5.sh to execute md5sum
+3. the handlemd5.sh will running from starttime to endtime (for this example is 06:30 to 08:30)
+4. Example: ./nodejob.sh -s 0630 -e 0830 -j ./handlemd5.sh -t 2314-23412 -d /root/clustjob/2314-23412
+
+handlemd5.sh
+1. this script will recieve 2 parameters, filename and outputfile
+2. Example: ./handlemd5.sh -f /path/to/kevenfile  -o outputfile
+

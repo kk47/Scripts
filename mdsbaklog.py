@@ -9,6 +9,7 @@ import getopt
 import time
 import alertmgmt
 
+import pdb
 def mdslog_backup():
     ''' Backup log files, similar to chain mode backup'''
     
@@ -176,9 +177,9 @@ def baklog_check():
 
 if __name__ == "__main__":
     
+    pdb.set_trace()
     mdsvip = ''
     baknode = ''
-    chkcron = 'Sat:06'
     bakdir = "/var/local/dayu/mdbak/"
     logpath = "/dayudata/mds/log/"
     cfgfile = "/var/local/dayu/nodes.cfg"

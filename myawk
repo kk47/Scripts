@@ -1,0 +1,2 @@
+#!/usr/bin/awk -f 
+BEGIN{sum=0;}{sum+=NF;}END{printf("file \"%s\" have %d line, %d words.\n", FILENAME, NR, sum);}
